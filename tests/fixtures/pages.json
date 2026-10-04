@@ -1,0 +1,10 @@
+[
+  {"success": 1, "cursor": "page+two/==", "reviews": [
+    {"recommendationid": "11", "review": "I wish there were more inventory slots. Nice art."},
+    {"recommendationid": "12", "review": "Please add more inventory slots!"}
+  ]},
+  {"success": 1, "cursor": "page+two/==", "reviews": [
+    {"recommendationid": "12", "review": "Please add more inventory slots!"},
+    {"recommendationid": "13", "review": "Keşke kayıt yuvaları eklense. Very fun."}
+  ]}
+]
