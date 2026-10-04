@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Local executable entry point for steam-review-miner."""
+
+from steam_review_miner import main
+
+
+if __name__ == "__main__":
+    main()
