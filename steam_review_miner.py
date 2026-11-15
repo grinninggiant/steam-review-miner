@@ -36,6 +36,9 @@ def fetch_reviews(appid, language="english", limit=500, opener=urlopen, pause=ti
             data = json.load(response).get("response")
         if not isinstance(data, dict):
             raise ValueError("Steam returned an unexpected response")
+        # Unknown appids get {"response": {}}; real apps always carry query_summary, even with no reviews.
+        if "query_summary" not in data:
+            raise ValueError(f"Steam has no review data for appid {appid}")
         page = data.get("reviews", [])
         if not page:
             break

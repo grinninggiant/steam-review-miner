@@ -48,12 +48,12 @@ class FetchTests(unittest.TestCase):
         self.assertEqual(queries[0], {"appid": 413150, "filter": 1, "num_per_page": 100, "cursor": "*",
                                       "languages": ["english"], "purchase_type": 1})
 
-    def test_empty_page_stops_without_another_request(self):
+    def test_known_app_without_reviews_stops_without_another_request(self):
         calls = []
 
         def open_page(url, timeout):
             calls.append(url)
-            return Response({"response": {"cursor": "next", "reviews": []}})
+            return Response({"response": {"query_summary": {"num_reviews": 0}, "cursor": "next", "reviews": []}})
 
         self.assertEqual(fetch_reviews(1, opener=open_page, pause=lambda _: None), (0, []))
         self.assertEqual(len(calls), 1)
@@ -61,6 +61,18 @@ class FetchTests(unittest.TestCase):
     def test_missing_response_envelope_is_an_error(self):
         with self.assertRaises(ValueError):
             fetch_reviews(1, opener=lambda url, timeout: Response({}), pause=lambda _: None)
+
+    def test_unknown_appid_fails_without_writing_report(self):
+        def fetch(appid, language, limit):
+            return fetch_reviews(appid, language, limit,
+                                 opener=lambda url, timeout: Response({"response": {}}), pause=lambda _: None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "report.json"
+            with patch("steam_review_miner.fetch_reviews", side_effect=fetch), \
+                    self.assertRaisesRegex(ValueError, "no review data for appid 999999999"):
+                main(["999999999", "--format", "json", "--out", str(output)])
+            self.assertFalse(output.exists())
 
 
 class ReportTests(unittest.TestCase):
