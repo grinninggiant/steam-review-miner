@@ -2,3 +2,5 @@ __pycache__/
 *.py[cod]
 report.md
 *.report.md
+report.json
+*.report.json
