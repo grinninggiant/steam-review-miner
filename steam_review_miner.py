@@ -25,15 +25,17 @@ def fetch_reviews(appid, language="english", limit=500, opener=urlopen, pause=ti
         if seen_cursors:
             pause(1)
         seen_cursors.add(cursor)
-        params = urlencode({
-            "json": 1, "filter": "recent", "num_per_page": 100,
-            "cursor": cursor, "language": language, "purchase_type": "all",
-        })
-        url = f"https://store.steampowered.com/appreviews/{appid}?{params}"
+        # Steam deprecated store /appreviews; filter 1 = Recent, purchase_type 1 = All.
+        query = {
+            "appid": appid, "filter": 1, "num_per_page": 100,
+            "cursor": cursor, "languages": [language], "purchase_type": 1,
+        }
+        params = urlencode({"input_json": json.dumps(query)})
+        url = f"https://api.steampowered.com/IUserReviewsService/GetAppReviews/v1/?{params}"
         with opener(url, timeout=20) as response:
-            data = json.load(response)
-        if data.get("success") != 1:
-            raise ValueError("Steam returned an unsuccessful response")
+            data = json.load(response).get("response")
+        if not isinstance(data, dict):
+            raise ValueError("Steam returned an unexpected response")
         page = data.get("reviews", [])
         if not page:
             break
@@ -120,18 +122,32 @@ def render_report(appid, fetched, unique, groups):
     return "\n".join(lines).rstrip() + "\n"
 
 
+def render_json(appid, fetched, unique, groups):
+    """Same aggregate data as render_report, as JSON; quotes stay short and capped at three."""
+    clusters = [{
+        "title": key,
+        "count": len(sentences),
+        "quotes": [s if len(s) <= 140 else s[:139] + "…" for s in sentences[:3]],
+    } for key, sentences in groups.items()]
+    report = {"appid": appid, "fetched": fetched, "unique": unique, "clusters": clusters}
+    return json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Steam yorumlarından oyuncu taleplerini kümele")
     parser.add_argument("appid", type=int)
     parser.add_argument("--lang", default="english")
     parser.add_argument("--limit", type=int, default=500)
-    parser.add_argument("--out", type=Path, default=Path("report.md"))
+    parser.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    parser.add_argument("--out", type=Path)
     args = parser.parse_args(argv)
+    render = render_json if args.format == "json" else render_report
+    args.out = args.out or Path("report.json" if args.format == "json" else "report.md")
     if args.appid < 1 or args.limit < 1:
         parser.error("appid and limit must be positive")
     fetched, reviews = fetch_reviews(args.appid, args.lang, args.limit)
     groups = group_requests(extract_requests(reviews))
-    args.out.write_text(render_report(args.appid, fetched, len(reviews), groups), encoding="utf-8")
+    args.out.write_text(render(args.appid, fetched, len(reviews), groups), encoding="utf-8")
     print(f"Çekilen: {fetched}; tekil: {len(reviews)}; küme: {len(groups)}; rapor: {args.out}")
 
 
